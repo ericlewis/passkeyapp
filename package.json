@@ -18,6 +18,7 @@
     "@turnkey/encoding": "^0.2.0",
     "@turnkey/http": "^2.7.0",
     "@turnkey/react-native-passkey-stamper": "^0.1.0",
+    "@turnkey/viem": "^0.4.19",
     "expo": "^50.0.17",
     "expo-status-bar": "~1.11.1",
     "prettier": "^3.2.5",

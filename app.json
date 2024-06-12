@@ -11,27 +11,30 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["webcredentials:passkeyapp.tkhqlabs.xyz"],
-      "bundleIdentifier": "xyz.tkhqlabs.passkeyapp"
+      "associatedDomains": [
+        "webcredentials:testcreds.ericlewis.workers.dev"
+      ],
+      "bundleIdentifier": "com.ericlewis.passkeyapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "xyz.tkhqlabs.passkeyapp"
+      "package": "com.ericlewis.passkeyapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "64f5f2df-f517-426c-80df-33e0619e3cbd"
+        "projectId": "037525bb-8284-4010-bc8b-9918511f0bc6"
       }
-    },
-    "owner": "moe-dev"
+    }
   }
 }

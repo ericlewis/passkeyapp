@@ -10,7 +10,7 @@ import { TurnkeyClient } from "@turnkey/http";
 import { Buffer } from "buffer";
 import { useNavigation } from "@react-navigation/native";
 
-const RPID = "passkeyapp.tkhqlabs.xyz";
+const RPID = "testcreds.ericlewis.workers.dev";
 
 export default function Home() {
   const navigation = useNavigation();
@@ -62,7 +62,7 @@ async function onPasskeyCreate() {
 
     // ID isn't visible by users, but needs to be random enough and valid base64 (for Android)
     const userId = Buffer.from(String(Date.now())).toString("base64");
-
+    console.log(RPID)
     const authenticatorParams = await createPasskey({
       // This doesn't matter much, it will be the name of the authenticator persisted on the Turnkey side.
       // Won't be visible by default.
@@ -109,8 +109,25 @@ async function onPasskeySignature() {
     });
     console.log("passkey authentication succeeded: ", getWhoamiResult);
     alert(
-      `Successfully logged into sub-organization ${getWhoamiResult.organizationId}`,
+      `Successfully logged into sub-organizationsss ${getWhoamiResult.organizationId}`,
     );
+    const wallet = await client.createWallet({
+      type: "ACTIVITY_TYPE_CREATE_WALLET",
+      organizationId: getWhoamiResult.organizationId,
+      timestampMs: String(Date.now()),
+      parameters: {
+        walletName: "New Wallet2",
+        accounts: [
+          {
+            curve: "CURVE_SECP256K1",
+            pathFormat: "PATH_FORMAT_BIP32",
+            path: "m/44'/60'/0'/0/0",
+            addressFormat: "ADDRESS_FORMAT_ETHEREUM",
+          },
+        ],
+      },
+    });
+    console.log(wallet);
   } catch (e) {
     console.error("error during passkey signature", e);
   }
