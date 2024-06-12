@@ -9,6 +9,11 @@ import { ApiKeyStamper } from "@turnkey/api-key-stamper";
 import { TurnkeyClient } from "@turnkey/http";
 import { Buffer } from "buffer";
 import { useNavigation } from "@react-navigation/native";
+import {
+  TurnkeySigner,
+  TurnkeySubOrganization,
+} from "@alchemy/aa-signers/dist/esm/turnkey";
+import { http } from "viem";
 
 const RPID = "testcreds.ericlewis.workers.dev";
 
@@ -97,37 +102,68 @@ async function onPasskeyCreate() {
 
 async function onPasskeySignature() {
   try {
+    const BASE_URL = "https://api.turnkey.com";
+
     const stamper = await new PasskeyStamper({
       rpId: RPID,
     });
+
+    const turnkeySigner = new TurnkeySigner({
+      apiUrl: BASE_URL,
+      stamper,
+    });
+
     const client = new TurnkeyClient(
-      { baseUrl: "https://api.turnkey.com" },
+      { baseUrl: BASE_URL },
       stamper,
     );
+
     const getWhoamiResult = await client.getWhoami({
       organizationId: process.env.EXPO_PUBLIC_TURNKEY_ORGANIZATION_ID,
     });
-    console.log("passkey authentication succeeded: ", getWhoamiResult);
-    alert(
-      `Successfully logged into sub-organizationsss ${getWhoamiResult.organizationId}`,
-    );
-    const wallet = await client.createWallet({
-      type: "ACTIVITY_TYPE_CREATE_WALLET",
-      organizationId: getWhoamiResult.organizationId,
-      timestampMs: String(Date.now()),
-      parameters: {
-        walletName: "New Wallet2",
-        accounts: [
-          {
-            curve: "CURVE_SECP256K1",
-            pathFormat: "PATH_FORMAT_BIP32",
-            path: "m/44'/60'/0'/0/0",
-            addressFormat: "ADDRESS_FORMAT_ETHEREUM",
-          },
-        ],
+
+    await turnkeySigner.authenticate({
+      resolveSubOrganization: async () => {
+        return new TurnkeySubOrganization({
+          subOrganizationId: getWhoamiResult.organizationId,
+          signWith: "0x1234567890123456789012345678901234567890",
+        });
       },
+      transport: http("https://eth-sepolia.g.alchemy.com/v2/c14MothsMzoMZOf2CHcYk7Aa08DHp8I9"),
     });
-    console.log(wallet);
+
+    console.log(turnkeySigner);
+    const add = await turnkeySigner.getAuthDetails();
+    console.log(add);
+
+    // const client = new TurnkeyClient(
+    //   { baseUrl: "https://api.turnkey.com" },
+    //   stamper,
+    // );
+    // const getWhoamiResult = await client.getWhoami({
+    //   organizationId: process.env.EXPO_PUBLIC_TURNKEY_ORGANIZATION_ID,
+    // });
+    // console.log("passkey authentication succeeded: ", getWhoamiResult);
+    // alert(
+    //   `Successfully logged into sub-organizationsss ${getWhoamiResult.organizationId}`,
+    // );
+    // const wallet = await client.createWallet({
+    //   type: "ACTIVITY_TYPE_CREATE_WALLET",
+    //   organizationId: getWhoamiResult.organizationId,
+    //   timestampMs: String(Date.now()),
+    //   parameters: {
+    //     walletName: "New Wallet2",
+    //     accounts: [
+    //       {
+    //         curve: "CURVE_SECP256K1",
+    //         pathFormat: "PATH_FORMAT_BIP32",
+    //         path: "m/44'/60'/0'/0/0",
+    //         addressFormat: "ADDRESS_FORMAT_ETHEREUM",
+    //       },
+    //     ],
+    //   },
+    // });
+    // console.log(wallet);
   } catch (e) {
     console.error("error during passkey signature", e);
   }

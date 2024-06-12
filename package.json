@@ -11,6 +11,7 @@
     "prettier-all:write": "prettier --write \"**/*.{css,html,js,json,md,ts,tsx,yaml,yml}\" --ignore-path ./.prettierignore"
   },
   "dependencies": {
+    "@alchemy/aa-signers": "^3.18.2",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "@turnkey/api-key-stamper": "^0.4.0",
@@ -21,6 +22,7 @@
     "@turnkey/viem": "^0.4.19",
     "expo": "^50.0.17",
     "expo-status-bar": "~1.11.1",
+    "fastestsmallesttextencoderdecoder": "^1.0.22",
     "prettier": "^3.2.5",
     "react": "18.2.0",
     "react-native": "0.73.6",
