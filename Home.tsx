@@ -13,9 +13,11 @@ import { Buffer } from "buffer";
 import { http, parseEther, formatEther } from "viem";
 
 const RPID = "testcreds.ericlewis.workers.dev";
+const BASE_URL = "https://api.turnkey.com";
 
 export default function Home() {
   const [provider, setProvider] = useState<any>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [address, setAddress] = useState<string>("0x4481cD4231c27f1fE64df32604a33Bdb1F6248Ea");
   const [amount, setAmount] = useState<string>("0.0");
 
@@ -23,6 +25,17 @@ export default function Home() {
     if (!provider) {
       const newProvider = await onPasskeySignature();
       setProvider(newProvider);
+      setWalletAddress(newProvider.account.address as any);
+      console.log(newProvider.account.address);
+    }
+  }, [provider]);
+
+  const signup = useCallback(async () => {
+    if (!provider) {
+      const newProvider = await onPasskeyCreate();
+      setProvider(newProvider);
+      setWalletAddress(newProvider.account.address as any);
+      console.log(newProvider.account.address);
     }
   }, [provider]);
 
@@ -37,11 +50,16 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Native Passkeys + Turnkey</Text>
-      {provider ? null : <Button title="Sign Up" onPress={onPasskeyCreate} />}
-      {provider ? null : <Button title="Sign In & get your ID" onPress={login} />}
-      {provider ? <TextInput placeholder="Recipient address" value={address} onChangeText={setAddress} /> : null}
-      {provider ? <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} /> : null}
-      {provider ? <Button title="Send monies" onPress={handleSendTransaction} /> : null}
+      {!provider && <Button title="Sign Up" onPress={signup} />}
+      {!provider && <Button title="Sign In & get your ID" onPress={login} />}
+      {walletAddress && <Text>{walletAddress}</Text>}
+      {provider && (
+        <>
+          <TextInput placeholder="Recipient address" value={address} onChangeText={setAddress} />
+          <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} />
+          <Button title="Send monies" onPress={handleSendTransaction} />
+        </>
+      )}
       <StatusBar style="auto" />
     </View>
   );
@@ -96,9 +114,36 @@ async function onPasskeyCreate() {
     const response = await createSubOrganization(authenticatorParams);
     console.log("Created sub-org:", response);
 
-    alert(
-      `Sub-org created! Your ID: ${response.activity.result.createSubOrganizationResultV4?.subOrganizationId}`,
-    );
+    const organizationId = response.activity.result.createSubOrganizationResultV4!.subOrganizationId;
+    alert(`Sub-org created! Your ID: ${organizationId}`);
+
+    const address = response.activity.result.createSubOrganizationResultV4.wallet!.addresses[0];
+
+    const stamper = new PasskeyStamper({ rpId: RPID });
+
+    const turnkeySigner = new TurnkeySigner({
+      apiUrl: BASE_URL,
+      stamper,
+    });
+
+    await turnkeySigner.authenticate({
+      resolveSubOrganization: async () => {
+        return new TurnkeySubOrganization({
+          subOrganizationId: organizationId,
+          signWith: address,
+        });
+      },
+      transport: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.EXPO_PUBLIC_ALCHEMY_API_KEY}`) as any,
+    });
+
+    const provider = await createLightAccountAlchemyClient({
+      apiKey: process.env.EXPO_PUBLIC_ALCHEMY_API_KEY,
+      chain: sepolia,
+      signer: turnkeySigner,
+    });
+
+    return provider;
+
   } catch (e) {
     console.error("Error during passkey creation", e);
   }
@@ -106,8 +151,6 @@ async function onPasskeyCreate() {
 
 async function onPasskeySignature() {
   try {
-    const BASE_URL = "https://api.turnkey.com";
-
     const stamper = new PasskeyStamper({ rpId: RPID });
 
     const turnkeySigner = new TurnkeySigner({
@@ -151,9 +194,7 @@ async function onPasskeySignature() {
   }
 }
 
-async function createSubOrganization(
-  authenticatorParams: Awaited<ReturnType<typeof createPasskey>>,
-) {
+async function createSubOrganization(authenticatorParams: Awaited<ReturnType<typeof createPasskey>>) {
   const stamper = new ApiKeyStamper({
     apiPublicKey: process.env.EXPO_PUBLIC_TURNKEY_API_PUBLIC_KEY,
     apiPrivateKey: process.env.EXPO_PUBLIC_TURNKEY_API_PRIVATE_KEY,
