@@ -11,6 +11,7 @@
     "prettier-all:write": "prettier --write \"**/*.{css,html,js,json,md,ts,tsx,yaml,yml}\" --ignore-path ./.prettierignore"
   },
   "dependencies": {
+    "@alchemy/aa-alchemy": "^3.18.2",
     "@alchemy/aa-signers": "^3.18.2",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
@@ -28,6 +29,7 @@
     "react-native": "0.73.6",
     "react-native-get-random-values": "^1.11.0",
     "react-native-passkey": "^2.1.1",
+    "react-native-quick-base64": "^2.1.2",
     "react-native-safe-area-context": "4.8.2",
     "react-native-screens": "~3.29.0"
   },
