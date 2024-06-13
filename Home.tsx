@@ -49,9 +49,9 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Native Passkeys + Turnkey</Text>
+      <Text style={styles.title}>Passkeys + Turnkey + Alchemy</Text>
       {!provider && <Button title="Sign Up" onPress={signup} />}
-      {!provider && <Button title="Sign In & get your ID" onPress={login} />}
+      {!provider && <Button title="Sign In" onPress={login} />}
       {walletAddress && <Text>{walletAddress}</Text>}
       {provider && (
         <>
@@ -246,7 +246,8 @@ async function sendTransaction(provider, address, amount) {
   console.log(provider.account.address);
 
   if (balanceFrom < ethAmount) {
-    throw new Error(`Insufficient ETH balance: ${formatEther(balanceFrom)}. Need at least ${formatEther(ethAmount)}.`);
+    alert(`Insufficient ETH balance: ${formatEther(balanceFrom)}. Need at least ${formatEther(ethAmount)}.`);
+    return;
   }
 
   console.log(
