@@ -14,7 +14,7 @@ function App() {
   return (
     <AccountProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Home">
+        <Stack.Navigator initialRouteName="Passkeys + TurnKey + Alchemy">
           <Stack.Screen name="Passkeys + TurnKey + Alchemy" component={HomeScreen} />
         </Stack.Navigator>
       </NavigationContainer>

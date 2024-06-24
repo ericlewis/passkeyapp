@@ -18,6 +18,7 @@ interface AccountContextType {
   walletAddress: string | null;
   organizationId: string | null;
   isLoggedIn: boolean;
+  isLoading: boolean;
   login: () => Promise<void>;
   signup: () => Promise<void>;
   logout: () => Promise<void>;
@@ -41,19 +42,23 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const loadSavedData = async () => {
+      setIsLoading(true);
       try {
         const savedWalletAddress = await AsyncStorage.getItem('walletAddress');
         const savedOrganizationId = await AsyncStorage.getItem('organizationId');
-        if (savedWalletAddress) setWalletAddress(savedWalletAddress);
-        if (savedOrganizationId) setOrganizationId(savedOrganizationId);
         if (savedWalletAddress && savedOrganizationId) {
-          await login();
+          setWalletAddress(savedWalletAddress);
+          setOrganizationId(savedOrganizationId);
+          await login(savedOrganizationId, savedWalletAddress);
         }
       } catch (error) {
         console.error('Failed to load saved data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadSavedData();
@@ -68,9 +73,9 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const login = useCallback(async () => {
-    if (!provider) {
-      const [savedOrganizationId, savedWalletAddress] = await Promise.all([AsyncStorage.getItem('organizationId'), AsyncStorage.getItem('walletAddress')]);
+  const login = useCallback(async (savedOrganizationId?: string, savedWalletAddress?: string) => {
+    setIsLoading(true);
+    try {
       const [newProvider, orgId, walletAddress] = await onPasskeySignature(savedOrganizationId, savedWalletAddress);
       if (newProvider) {
         setProvider(newProvider);
@@ -79,23 +84,33 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await saveDataToStorage(walletAddress, orgId);
         setIsLoggedIn(true);
       }
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [provider]);
+  }, []);
 
   const signup = useCallback(async () => {
-    if (!provider) {
+    setIsLoading(true);
+    try {
       const result = await onPasskeyCreate();
       if (result) {
-        const { provider: newProvider, organizationId: newOrganizationId } = result;
+        const { provider: newProvider, organizationId: newOrganizationId, address: newWalletAddress } = result;
         setProvider(newProvider);
-        const newWalletAddress = newProvider.account.address as string;
-        setWalletAddress(newWalletAddress);
+        setWalletAddress(newProvider.account.address);
         setOrganizationId(newOrganizationId);
         await saveDataToStorage(newWalletAddress, newOrganizationId);
         setIsLoggedIn(true);
       }
+    } catch (error) {
+      console.error("Signup failed:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [provider]);
+  }, []);
 
   const logout = useCallback(async () => {
     setProvider(null);
@@ -200,26 +215,26 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     walletAddress,
     organizationId,
     isLoggedIn,
+    isLoading,
     login,
     signup,
     logout,
     sendTransaction,
     getTransactions,
     getBalance,
-  }), [provider, walletAddress, organizationId, isLoggedIn, login, signup, logout, sendTransaction, getTransactions, getBalance]);
+  }), [provider, walletAddress, organizationId, isLoggedIn, isLoading, login, signup, logout, sendTransaction, getTransactions, getBalance]);
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 };
 
 async function onPasskeyCreate() {
   if (!isSupported()) {
-    alert("Passkeys are not supported on this device");
-    return;
+    throw new Error("Passkeys are not supported on this device");
   }
 
   try {
     const now = new Date();
-    const humanReadableDateTime = `${now.getFullYear()}-${now.getMonth()}-${now.getDay()}@${now.getHours()}h${now.getMinutes()}min`;
+    const humanReadableDateTime = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}@${now.getHours()}h${now.getMinutes()}min`;
 
     const userId = Buffer.from(String(Date.now())).toString("base64");
 
@@ -241,18 +256,11 @@ async function onPasskeyCreate() {
       },
     });
 
-    console.log("Passkey registration succeeded:", authenticatorParams);
-
     const response = await createSubOrganization(authenticatorParams);
-    console.log("Created sub-org:", response);
-
     const organizationId = response.activity.result.createSubOrganizationResultV4!.subOrganizationId;
-    alert(`Sub-org created! Your ID: ${organizationId}`);
-
     const address = response.activity.result.createSubOrganizationResultV4!.wallet!.addresses[0];
 
     const stamper = new PasskeyStamper({ rpId: RPID });
-
     const turnkeySigner = new TurnkeySigner({
       apiUrl: BASE_URL,
       stamper,
@@ -274,14 +282,14 @@ async function onPasskeyCreate() {
       signer: turnkeySigner,
     });
 
-    return { provider, organizationId };
-
+    return { provider, organizationId, address };
   } catch (e) {
     console.error("Error during passkey creation", e);
+    throw e;
   }
 }
 
-async function onPasskeySignature(savedOrganizationId?: string | null, savedWalletAddress?: string | null): Promise<any> {
+async function onPasskeySignature(savedOrganizationId?: string | null, savedWalletAddress?: string | null): Promise<[any, string, string]> {
   try {
     const stamper = new PasskeyStamper({ rpId: RPID });
     const turnkeySigner = new TurnkeySigner({
@@ -306,8 +314,8 @@ async function onPasskeySignature(savedOrganizationId?: string | null, savedWall
     await turnkeySigner.authenticate({
       resolveSubOrganization: async () => {
         return new TurnkeySubOrganization({
-          subOrganizationId: organizationId,
-          signWith: address,
+          subOrganizationId: organizationId!,
+          signWith: address!,
         });
       },
       transport: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.EXPO_PUBLIC_ALCHEMY_API_KEY}`) as any,
@@ -319,9 +327,10 @@ async function onPasskeySignature(savedOrganizationId?: string | null, savedWall
       signer: turnkeySigner,
     });
 
-    return [provider, organizationId, address];
+    return [provider, organizationId!, address!];
   } catch (e) {
     console.error("Error during passkey signature", e);
+    throw e;
   }
 }
 
