@@ -39,9 +39,9 @@ const TransactionItem = ({ item, walletAddress }: { item: AssetTransfersResult; 
         {item.from.toLowerCase() === walletAddress?.toLowerCase() ? 'Sent' : 'Received'}
       </Text>
       <Text>
-        {item.from.toLowerCase() === walletAddress?.toLowerCase() ? `To: ${truncateAddress(item.to)}` : `From: ${truncateAddress(item.from)}`}
+        {item.from.toLowerCase() === walletAddress?.toLowerCase() ? `To: ${truncateAddress(item.to as any)}` : `From: ${truncateAddress(item.from)}`}
       </Text>
-      <Text>Value: {formatEthValue(item.value)} {item.asset}</Text>
+      <Text>Value: {formatEthValue(item.value as any)} {item.asset}</Text>
       <Text>Block: {item.blockNum}</Text>
     </View>
   </View>
@@ -56,6 +56,7 @@ export default function Home() {
   const [balance, setBalance] = useState<string>("0");
   const [isFetchingBalance, setIsFetchingBalance] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSendingTransaction, setIsSendingTransaction] = useState(false);
 
   const handleLogin = useCallback(async () => {
     try {
@@ -77,14 +78,18 @@ export default function Home() {
 
   const handleSendTransaction = useCallback(async () => {
     if (provider) {
+      setIsSendingTransaction(true);
       try {
         await sendTransaction(address, amount);
+        setAmount("0.0");
         Alert.alert("Success", "Transaction sent successfully!");
         fetchBalance();
         fetchTransactions();
       } catch (error) {
         console.error("Transaction failed:", error);
         Alert.alert("Transaction Failed", "Please try again.");
+      } finally {
+        setIsSendingTransaction(false);
       }
     } else {
       Alert.alert("Error", "You need to sign in first");
@@ -142,8 +147,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#6200EE" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
@@ -192,6 +196,7 @@ export default function Home() {
                 placeholder="Recipient address"
                 value={address}
                 onChangeText={setAddress}
+                editable={!isSendingTransaction}
               />
               <TextInput
                 style={styles.input}
@@ -199,10 +204,22 @@ export default function Home() {
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="numeric"
+                editable={!isSendingTransaction}
               />
-              <TouchableOpacity style={styles.sendButton} onPress={handleSendTransaction}>
-                <Text style={styles.buttonText}>Send Transaction</Text>
-              </TouchableOpacity>
+              {isSendingTransaction ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#6200EE" />
+                  <Text style={styles.loadingText}>Submitting transaction...</Text>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.sendButton} 
+                  onPress={handleSendTransaction}
+                  disabled={!address || !amount || amount === "0.0"}
+                >
+                  <Text style={styles.buttonText}>Send Transaction</Text>
+                </TouchableOpacity>
+              )}
             </View>
             
             <View style={styles.card}>
@@ -311,6 +328,17 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     width: '100%',
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  loadingText: {
+    marginLeft: 10,
+    color: '#6200EE',
+    fontSize: 14,
+  },
   sendButton: {
     backgroundColor: '#6200EE',
     padding: 15,
@@ -322,10 +350,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 18,
   },
   transactionItem: {
     flexDirection: 'row',
