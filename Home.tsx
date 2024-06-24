@@ -5,7 +5,7 @@ import { useAccount } from './useAccount'; // Update this path
 import { AssetTransfersResult } from "alchemy-sdk";
 
 export default function Home() {
-  const { provider, walletAddress, login, signup, sendTransaction, getTransactions, getBalance } = useAccount();
+  const { provider, walletAddress, isLoggedIn, login, signup, sendTransaction, getTransactions, getBalance } = useAccount();
   const [address, setAddress] = useState<string>("0x4481cD4231c27f1fE64df32604a33Bdb1F6248Ea");
   const [amount, setAmount] = useState<string>("0.0");
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -75,11 +75,11 @@ export default function Home() {
   }, [walletAddress, getBalance]);
 
   useEffect(() => {
-    if (walletAddress) {
+    if (isLoggedIn) {
       fetchBalance();
       fetchTransactions();
     }
-  }, [walletAddress, fetchBalance, fetchTransactions]);
+  }, [isLoggedIn, fetchBalance, fetchTransactions]);
 
   const renderTransaction = ({ item }: { item: AssetTransfersResult }) => (
     <View style={styles.transaction}>

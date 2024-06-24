@@ -13,6 +13,7 @@
   "dependencies": {
     "@alchemy/aa-alchemy": "^3.18.2",
     "@alchemy/aa-signers": "^3.18.2",
+    "@react-native-async-storage/async-storage": "1.21.0",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "@turnkey/api-key-stamper": "^0.4.0",
