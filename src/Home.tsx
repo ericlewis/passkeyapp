@@ -164,7 +164,6 @@ export default function Home() {
       >
         {!provider ? (
           <View style={styles.authContainer}>
-            <Text style={styles.title}>Welcome to Passkeys + TurnKey + Alchemy</Text>
             <TouchableOpacity style={styles.button} onPress={handleSignup}>
               <Text style={styles.buttonText}>Sign Up</Text>
             </TouchableOpacity>

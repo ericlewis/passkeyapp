@@ -1,12 +1,12 @@
 import "fastestsmallesttextencoderdecoder";
 import "react-native-get-random-values"
-import "./Base64";
+import "./src/Base64";
 
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import HomeScreen from "./Home";
-import { AccountProvider } from "./useAccount";
+import HomeScreen from "./src/Home";
+import { AccountProvider } from "./src/useAccount";
 
 const Stack = createNativeStackNavigator();
 
