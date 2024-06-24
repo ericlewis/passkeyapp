@@ -1,65 +1,139 @@
+import React, { useCallback, useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
-import { useCallback, useState } from "react";
-
-import { PasskeyStamper, createPasskey, isSupported } from "@turnkey/react-native-passkey-stamper";
-import { ApiKeyStamper } from "@turnkey/api-key-stamper";
-import { TurnkeyClient } from "@turnkey/http";
-import { TurnkeySigner, TurnkeySubOrganization } from "@alchemy/aa-signers/dist/esm/turnkey";
-import { createLightAccountAlchemyClient } from "@alchemy/aa-alchemy";
-import { sepolia } from "@alchemy/aa-core";
-
-import { Buffer } from "buffer";
-import { http, parseEther, formatEther } from "viem";
-
-const RPID = "testcreds.ericlewis.workers.dev";
-const BASE_URL = "https://api.turnkey.com";
+import { Button, StyleSheet, Text, TextInput, View, FlatList } from "react-native";
+import { useAccount } from './useAccount'; // Update this path
+import { AssetTransfersResult } from "alchemy-sdk";
 
 export default function Home() {
-  const [provider, setProvider] = useState<any>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { provider, walletAddress, login, signup, sendTransaction, getTransactions, getBalance } = useAccount();
   const [address, setAddress] = useState<string>("0x4481cD4231c27f1fE64df32604a33Bdb1F6248Ea");
   const [amount, setAmount] = useState<string>("0.0");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [balance, setBalance] = useState<string>("0");
 
-  const login = useCallback(async () => {
-    if (!provider) {
-      const newProvider = await onPasskeySignature();
-      setProvider(newProvider);
-      setWalletAddress(newProvider.account.address as any);
-      console.log(newProvider.account.address);
+  const handleLogin = useCallback(async () => {
+    try {
+      await login();
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Login failed. Please try again.");
     }
-  }, [provider]);
+  }, [login]);
 
-  const signup = useCallback(async () => {
-    if (!provider) {
-      const newProvider = await onPasskeyCreate();
-      setProvider(newProvider);
-      setWalletAddress(newProvider.account.address as any);
-      console.log(newProvider.account.address);
+  const handleSignup = useCallback(async () => {
+    try {
+      await signup();
+    } catch (error) {
+      console.error("Signup failed:", error);
+      alert("Signup failed. Please try again.");
     }
-  }, [provider]);
+  }, [signup]);
 
   const handleSendTransaction = useCallback(async () => {
     if (provider) {
-      await sendTransaction(provider, address, amount);
+      try {
+        await sendTransaction(address, amount);
+        alert("Transaction sent successfully!");
+        // Refresh balance / transactions after sending
+        fetchBalance();
+        fetchTransactions();
+      } catch (error) {
+        console.error("Transaction failed:", error);
+        alert("Transaction failed. Please try again.");
+      }
     } else {
       alert("You need to sign in first");
     }
-  }, [provider, address, amount]);
+  }, [provider, sendTransaction, address, amount]);
+
+  const fetchTransactions = useCallback(async () => {
+    if (walletAddress) {
+      setIsLoading(true);
+      try {
+        const txs = await getTransactions(); // Fetch sent transactions
+        setTransactions(txs);
+      } catch (error) {
+        console.error("Error fetching transactions:", error);
+        alert("Failed to fetch transactions. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [walletAddress, getTransactions]);
+
+  const fetchBalance = useCallback(async () => {
+    if (walletAddress) {
+      try {
+        const newBalance = await getBalance();
+        setBalance(newBalance);
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+        alert("Failed to fetch balance. Please try again.");
+      }
+    }
+  }, [walletAddress, getBalance]);
+
+  useEffect(() => {
+    if (walletAddress) {
+      fetchBalance();
+      fetchTransactions();
+    }
+  }, [walletAddress, fetchBalance, fetchTransactions]);
+
+  const renderTransaction = ({ item }: { item: AssetTransfersResult }) => (
+    <View style={styles.transaction}>
+      <Text style={styles.transactionType}>
+        {item.from.toLowerCase() === walletAddress?.toLowerCase() ? 'Sent' : 'Received'}
+      </Text>
+      <Text>
+        {item.from.toLowerCase() === walletAddress?.toLowerCase() ? `To: ${item.to}` : `From: ${item.from}`}
+      </Text>
+      <Text>Value: {item.value} {item.asset}</Text>
+      <Text>Block: {item.blockNum}</Text>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Passkeys + Turnkey + Alchemy</Text>
-      {!provider && <Button title="Sign Up" onPress={signup} />}
-      {!provider && <Button title="Sign In" onPress={login} />}
-      {walletAddress && <Text>{walletAddress}</Text>}
-      {provider && (
+    <View style={styles.container}>      
+      {!provider ? (
         <>
-          <TextInput placeholder="Recipient address" value={address} onChangeText={setAddress} />
-          <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} />
-          <Button title="Send monies" onPress={handleSendTransaction} />
+          <Button title="Sign Up" onPress={handleSignup} />
+          <Button title="Sign In" onPress={handleLogin} />
+        </>
+      ) : (
+        <>
+          <Text>Wallet Address: {walletAddress}</Text>
+          <Text style={styles.balance}>Balance: {balance} ETH</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Recipient address"
+            value={address}
+            onChangeText={setAddress}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Amount"
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+          />
+          <Button title="Send Transaction" onPress={handleSendTransaction} />
+          
+          <Text style={styles.subtitle}>Recent Transactions</Text>
+          {isLoading ? (
+            <Text>Loading transactions...</Text>
+          ) : (
+            <FlatList
+              data={transactions}
+              renderItem={renderTransaction}
+              keyExtractor={(item) => item.hash}
+              style={styles.list}
+            />
+          )}
         </>
       )}
+      
       <StatusBar style="auto" />
     </View>
   );
@@ -71,193 +145,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
+    padding: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: "600",
-    margin: 42,
+    marginBottom: 20,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  input: {
+    width: '100%',
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  list: {
+    width: '100%',
+    marginTop: 10,
+  },
+  transaction: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  transactionType: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  balance: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginVertical: 10,
   },
 });
-
-async function onPasskeyCreate() {
-  if (!isSupported()) {
-    alert("Passkeys are not supported on this device");
-    return;
-  }
-
-  try {
-    const now = new Date();
-    const humanReadableDateTime = `${now.getFullYear()}-${now.getMonth()}-${now.getDay()}@${now.getHours()}h${now.getMinutes()}min`;
-
-    const userId = Buffer.from(String(Date.now())).toString("base64");
-
-    const authenticatorParams = await createPasskey({
-      authenticatorName: "End-User Passkey",
-      rp: {
-        id: RPID,
-        name: "Passkey App",
-      },
-      user: {
-        id: userId,
-        name: `Key @ ${humanReadableDateTime}`,
-        displayName: `Key @ ${humanReadableDateTime}`,
-      },
-      authenticatorSelection: {
-        residentKey: "required",
-        requireResidentKey: true,
-        userVerification: "preferred",
-      },
-    });
-
-    console.log("Passkey registration succeeded:", authenticatorParams);
-
-    const response = await createSubOrganization(authenticatorParams);
-    console.log("Created sub-org:", response);
-
-    const organizationId = response.activity.result.createSubOrganizationResultV4!.subOrganizationId;
-    alert(`Sub-org created! Your ID: ${organizationId}`);
-
-    const address = response.activity.result.createSubOrganizationResultV4.wallet!.addresses[0];
-
-    const stamper = new PasskeyStamper({ rpId: RPID });
-
-    const turnkeySigner = new TurnkeySigner({
-      apiUrl: BASE_URL,
-      stamper,
-    });
-
-    await turnkeySigner.authenticate({
-      resolveSubOrganization: async () => {
-        return new TurnkeySubOrganization({
-          subOrganizationId: organizationId,
-          signWith: address,
-        });
-      },
-      transport: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.EXPO_PUBLIC_ALCHEMY_API_KEY}`) as any,
-    });
-
-    const provider = await createLightAccountAlchemyClient({
-      apiKey: process.env.EXPO_PUBLIC_ALCHEMY_API_KEY,
-      chain: sepolia,
-      signer: turnkeySigner,
-    });
-
-    return provider;
-
-  } catch (e) {
-    console.error("Error during passkey creation", e);
-  }
-}
-
-async function onPasskeySignature() {
-  try {
-    const stamper = new PasskeyStamper({ rpId: RPID });
-
-    const turnkeySigner = new TurnkeySigner({
-      apiUrl: BASE_URL,
-      stamper,
-    });
-
-    const client = new TurnkeyClient({ baseUrl: BASE_URL }, stamper);
-
-    const { organizationId } = await client.getWhoami({
-      organizationId: process.env.EXPO_PUBLIC_TURNKEY_ORGANIZATION_ID,
-    });
-
-    const {
-      wallets: [{ walletId }],
-    } = await client.getWallets({ organizationId });
-
-    const {
-      accounts: [{ address }],
-    } = await client.getWalletAccounts({ organizationId, walletId });
-
-    await turnkeySigner.authenticate({
-      resolveSubOrganization: async () => {
-        return new TurnkeySubOrganization({
-          subOrganizationId: organizationId,
-          signWith: address,
-        });
-      },
-      transport: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.EXPO_PUBLIC_ALCHEMY_API_KEY}`) as any,
-    });
-
-    const provider = await createLightAccountAlchemyClient({
-      apiKey: process.env.EXPO_PUBLIC_ALCHEMY_API_KEY,
-      chain: sepolia,
-      signer: turnkeySigner,
-    });
-
-    return provider;
-  } catch (e) {
-    console.error("Error during passkey signature", e);
-  }
-}
-
-async function createSubOrganization(authenticatorParams: Awaited<ReturnType<typeof createPasskey>>) {
-  const stamper = new ApiKeyStamper({
-    apiPublicKey: process.env.EXPO_PUBLIC_TURNKEY_API_PUBLIC_KEY,
-    apiPrivateKey: process.env.EXPO_PUBLIC_TURNKEY_API_PRIVATE_KEY,
-  });
-
-  const client = new TurnkeyClient(
-    { baseUrl: "https://api.turnkey.com" },
-    stamper,
-  );
-
-  const data = await client.createSubOrganization({
-    type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION_V4",
-    timestampMs: String(Date.now()),
-    organizationId: process.env.EXPO_PUBLIC_TURNKEY_ORGANIZATION_ID,
-    parameters: {
-      subOrganizationName: `Sub-organization at ${String(Date.now())}`,
-      rootQuorumThreshold: 1,
-      rootUsers: [
-        {
-          userName: "Root User",
-          apiKeys: [],
-          authenticators: [authenticatorParams],
-        },
-      ],
-      wallet: {
-        walletName: "string",
-        accounts: [
-          {
-            curve: "CURVE_SECP256K1",
-            pathFormat: "PATH_FORMAT_BIP32",
-            path: "m/44'/60'/0'/0/0",
-            addressFormat: "ADDRESS_FORMAT_ETHEREUM",
-          },
-        ],
-        mnemonicLength: 24,
-      },
-    },
-  });
-
-  return data;
-}
-
-async function sendTransaction(provider, address, amount) {
-  const ethAmount = parseEther(amount);
-  const balanceFrom = await provider.getBalance({
-    address: provider.account.address,
-  });
-
-  console.log(provider.account.address);
-
-  if (balanceFrom < ethAmount) {
-    alert(`Insufficient ETH balance: ${formatEther(balanceFrom)}. Need at least ${formatEther(ethAmount)}.`);
-    return;
-  }
-
-  console.log(
-    `The balance of the sender (${provider.account.address}) is: ${formatEther(balanceFrom)} ETH`
-  );
-
-  const transaction = await provider.sendTransaction({
-    to: address,
-    value: ethAmount,
-  } as any);
-
-  console.log(transaction);
-}
